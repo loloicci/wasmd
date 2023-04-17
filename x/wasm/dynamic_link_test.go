@@ -308,13 +308,13 @@ func TestDynamicCallAndTraditionalQueryWork(t *testing.T) {
 	}
 	queryReq := abci.RequestQuery{Data: []byte(`{"number":{}}`)}
 	qRes, qErr := q(data.ctx, queryPath, queryReq)
-	assert.NoError(t, qErr)
+	require.NoError(t, qErr)
 	assert.Equal(t, []byte(`{"value":21}`), qRes)
 
 	// query via dynamic call from caller
 	dynQueryReq := abci.RequestQuery{Data: []byte(`{"number_dyn":{}}`)}
 	qRes, qErr = q(data.ctx, queryPath, dynQueryReq)
-	assert.NoError(t, qErr)
+	require.NoError(t, qErr)
 	assert.Equal(t, []byte(`{"value":21}`), qRes)
 
 	// execute mul
@@ -335,10 +335,10 @@ func TestDynamicCallAndTraditionalQueryWork(t *testing.T) {
 
 	// queries
 	qRes, qErr = q(data.ctx, queryPath, queryReq)
-	assert.NoError(t, qErr)
+	require.NoError(t, qErr)
 	assert.Equal(t, []byte(`{"value":42}`), qRes)
 	qRes, qErr = q(data.ctx, queryPath, dynQueryReq)
-	assert.NoError(t, qErr)
+	require.NoError(t, qErr)
 	assert.Equal(t, []byte(`{"value":42}`), qRes)
 }
 
@@ -408,7 +408,7 @@ func TestDynamicCallWithWriteFailsByQuery(t *testing.T) {
 	}
 	queryReq := abci.RequestQuery{Data: []byte(`{"mul":{"value":2}}`)}
 	_, qErr := q(data.ctx, queryPath, queryReq)
-	assert.ErrorContains(t, qErr, "It is not possible to inherit from read-only permission to read-write permission")
+	assert.ErrorContains(t, qErr, "a read-write callable point is called in read-only context")
 }
 
 // This tests callee_panic in dynamic call fails
@@ -477,4 +477,5 @@ func TestDynamicCallCalleeFails(t *testing.T) {
 	}
 	res, err = h(data.ctx, &executeMsg)
 	assert.ErrorContains(t, err, "Error in dynamic link")
+	assert.ErrorContains(t, err, "RuntimeError: unreachable")
 }
