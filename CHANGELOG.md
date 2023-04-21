@@ -5,6 +5,7 @@
 ### Features
 
 ### Improvements
+* [\#36](https://github.com/Finschia/wasmd/pull/36) separate `x/wasm` into `x/wasmplus` module of dynamiclink
 
 ### Bug Fixes
 
