@@ -8,13 +8,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 
 	cryptocodec "github.com/line/lbm-sdk/crypto/codec"
 	"github.com/line/lbm-sdk/crypto/keys/ed25519"
 	sdk "github.com/line/lbm-sdk/types"
 	authtypes "github.com/line/lbm-sdk/x/auth/types"
 	banktypes "github.com/line/lbm-sdk/x/bank/types"
-	ocproto "github.com/line/ostracon/proto/ostracon/types"
 	octypes "github.com/line/ostracon/types"
 
 	"github.com/line/wasmd/app"
@@ -42,7 +42,7 @@ func TestSnapshotter(t *testing.T) {
 			srcWasmApp, genesisAddr := newWasmExampleApp(t)
 
 			// store wasm codes on chain
-			ctx := srcWasmApp.NewUncachedContext(false, ocproto.Header{
+			ctx := srcWasmApp.NewUncachedContext(false, tmproto.Header{
 				ChainID: "foo",
 				Height:  srcWasmApp.LastBlockHeight() + 1,
 				Time:    time.Now(),
@@ -54,11 +54,10 @@ func TestSnapshotter(t *testing.T) {
 			for i, v := range spec.wasmFiles {
 				wasmCode, err := os.ReadFile(v)
 				require.NoError(t, err)
-				codeID, err := contractKeeper.Create(ctx, genesisAddr, wasmCode, nil)
+				codeID, checksum, err := contractKeeper.Create(ctx, genesisAddr, wasmCode, nil)
 				require.NoError(t, err)
 				require.Equal(t, uint64(i+1), codeID)
-				hash := sha256.Sum256(wasmCode)
-				srcCodeIDToChecksum[codeID] = hash[:]
+				srcCodeIDToChecksum[codeID] = checksum
 			}
 			// create snapshot
 			srcWasmApp.Commit()
@@ -82,7 +81,7 @@ func TestSnapshotter(t *testing.T) {
 
 			// then all wasm contracts are imported
 			wasmKeeper = app.NewTestSupport(t, destWasmApp).WasmKeeper()
-			ctx = destWasmApp.NewUncachedContext(false, ocproto.Header{
+			ctx = destWasmApp.NewUncachedContext(false, tmproto.Header{
 				ChainID: "foo",
 				Height:  destWasmApp.LastBlockHeight() + 1,
 				Time:    time.Now(),

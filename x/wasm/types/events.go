@@ -14,8 +14,6 @@ const (
 	EventTypeInstantiate       = "instantiate"
 	EventTypeExecute           = "execute"
 	EventTypeMigrate           = "migrate"
-	EventTypeUpdateAdmin       = "update_admin"
-	EventTypeClearAdmin        = "clear_admin"
 	EventTypePinCode           = "pin_code"
 	EventTypeUnpinCode         = "unpin_code"
 	EventTypeSudo              = "sudo"
@@ -31,6 +29,8 @@ const (
 	AttributeKeyCallstack     = "_callstack"
 	AttributeKeyCodeID        = "code_id"
 	AttributeKeyCodeIDs       = "code_ids"
+	AttributeKeyChecksum      = "code_checksum"
 	AttributeKeyResultDataHex = "result"
+	AttributeKeyRequiredCapability = "required_capability"
 	AttributeKeyFeature       = "feature"
 )
