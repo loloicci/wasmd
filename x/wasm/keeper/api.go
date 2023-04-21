@@ -37,7 +37,7 @@ func canonicalAddress(human string) ([]byte, uint64, error) {
 	return bz, costCanonical, err
 }
 
-var cosmwasmAPI = wasmvm.GoAPI{
+var cosmwasmAPI = wasmvm.GoAPI{ // nolint:varcheck,deadcode
 	HumanAddress:     humanAddress,
 	CanonicalAddress: canonicalAddress,
 }
