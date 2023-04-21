@@ -1,60 +1,21 @@
 package keeper
 
 import (
-	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	sdk "github.com/line/lbm-sdk/types"
 	wasmvmtypes "github.com/line/wasmvm/types"
-
-	"github.com/line/wasmd/x/wasm/types"
 )
 
-func TestHasWasmModuleEvent(t *testing.T) {
-	myContractAddr := RandomAccountAddress(t)
-	specs := map[string]struct {
-		srcEvents []sdk.Event
-		exp       bool
-	}{
-		"event found": {
-			srcEvents: []sdk.Event{
-				sdk.NewEvent(types.WasmModuleEventType, sdk.NewAttribute("_contract_address", myContractAddr.String())),
-			},
-			exp: true,
-		},
-		"different event: not found": {
-			srcEvents: []sdk.Event{
-				sdk.NewEvent(types.CustomContractEventPrefix, sdk.NewAttribute("_contract_address", myContractAddr.String())),
-			},
-			exp: false,
-		},
-		"event with different address: not found": {
-			srcEvents: []sdk.Event{
-				sdk.NewEvent(types.WasmModuleEventType, sdk.NewAttribute("_contract_address", RandomBech32AccountAddress(t))),
-			},
-			exp: false,
-		},
-		"no event": {
-			srcEvents: []sdk.Event{},
-			exp:       false,
-		},
-	}
-	for name, spec := range specs {
-		t.Run(name, func(t *testing.T) {
-			em := sdk.NewEventManager()
-			em.EmitEvents(spec.srcEvents)
-			ctx := sdk.Context{}.WithContext(context.Background()).WithEventManager(em)
-
-			got := hasWasmModuleEvent(ctx, myContractAddr)
-			assert.Equal(t, spec.exp, got)
-		})
-	}
-}
-
-func TestNewCustomEvents(t *testing.T) {
+func TestNewCustomCallablePointEvents(t *testing.T) {
 	myContract := RandomAccountAddress(t)
+	myCallstack := []sdk.AccAddress{RandomAccountAddress(t), RandomAccountAddress(t)}
+	myCallstackBinary, err := json.Marshal(myCallstack)
+	require.NoError(t, err)
 	specs := map[string]struct {
 		src     wasmvmtypes.Events
 		exp     sdk.Events
@@ -65,20 +26,20 @@ func TestNewCustomEvents(t *testing.T) {
 				Type:       "foo",
 				Attributes: []wasmvmtypes.EventAttribute{{Key: "myKey", Value: "myVal"}},
 			}},
-			exp: sdk.Events{sdk.NewEvent("wasm-foo",
+			exp: sdk.Events{sdk.NewEvent("wasm-callablepoint-foo",
 				sdk.NewAttribute("_contract_address", myContract.String()),
+				sdk.NewAttribute("_callstack", string(myCallstackBinary)),
 				sdk.NewAttribute("myKey", "myVal"))},
 		},
 		"multiple attributes": {
 			src: wasmvmtypes.Events{{
 				Type: "foo",
-				Attributes: []wasmvmtypes.EventAttribute{
-					{Key: "myKey", Value: "myVal"},
-					{Key: "myOtherKey", Value: "myOtherVal"},
-				},
+				Attributes: []wasmvmtypes.EventAttribute{{Key: "myKey", Value: "myVal"},
+					{Key: "myOtherKey", Value: "myOtherVal"}},
 			}},
-			exp: sdk.Events{sdk.NewEvent("wasm-foo",
+			exp: sdk.Events{sdk.NewEvent("wasm-callablepoint-foo",
 				sdk.NewAttribute("_contract_address", myContract.String()),
+				sdk.NewAttribute("_callstack", string(myCallstackBinary)),
 				sdk.NewAttribute("myKey", "myVal"),
 				sdk.NewAttribute("myOtherKey", "myOtherVal"))},
 		},
@@ -91,11 +52,13 @@ func TestNewCustomEvents(t *testing.T) {
 				Attributes: []wasmvmtypes.EventAttribute{{Key: "otherKey", Value: "otherVal"}},
 			}},
 			exp: sdk.Events{
-				sdk.NewEvent("wasm-foo",
+				sdk.NewEvent("wasm-callablepoint-foo",
 					sdk.NewAttribute("_contract_address", myContract.String()),
+					sdk.NewAttribute("_callstack", string(myCallstackBinary)),
 					sdk.NewAttribute("myKey", "myVal")),
-				sdk.NewEvent("wasm-bar",
+				sdk.NewEvent("wasm-callablepoint-bar",
 					sdk.NewAttribute("_contract_address", myContract.String()),
+					sdk.NewAttribute("_callstack", string(myCallstackBinary)),
 					sdk.NewAttribute("otherKey", "otherVal")),
 			},
 		},
@@ -103,8 +66,10 @@ func TestNewCustomEvents(t *testing.T) {
 			src: wasmvmtypes.Events{{
 				Type: "foo",
 			}},
-			exp: sdk.Events{sdk.NewEvent("wasm-foo",
-				sdk.NewAttribute("_contract_address", myContract.String()))},
+			exp: sdk.Events{sdk.NewEvent("wasm-callablepoint-foo",
+				sdk.NewAttribute("_contract_address", myContract.String()),
+				sdk.NewAttribute("_callstack", string(myCallstackBinary))),
+			},
 		},
 		"error on short event type": {
 			src: wasmvmtypes.Events{{
@@ -124,8 +89,7 @@ func TestNewCustomEvents(t *testing.T) {
 				Type: "wasm",
 				Attributes: []wasmvmtypes.EventAttribute{
 					{Key: "_reserved", Value: "is skipped"},
-					{Key: "normal", Value: "is used"},
-				},
+					{Key: "normal", Value: "is used"}},
 			}},
 			isError: true,
 		},
@@ -183,8 +147,10 @@ func TestNewCustomEvents(t *testing.T) {
 				Type:       "  food\n",
 				Attributes: []wasmvmtypes.EventAttribute{{Key: "my Key", Value: "\tmyVal"}},
 			}},
-			exp: sdk.Events{sdk.NewEvent("wasm-food",
+			exp: sdk.Events{sdk.NewEvent("wasm-callablepoint-food",
 				sdk.NewAttribute("_contract_address", myContract.String()),
+				sdk.NewAttribute("_callstack", string(myCallstackBinary)),
+
 				sdk.NewAttribute("my Key", "myVal"))},
 		},
 		"empty event elements": {
@@ -197,7 +163,7 @@ func TestNewCustomEvents(t *testing.T) {
 	}
 	for name, spec := range specs {
 		t.Run(name, func(t *testing.T) {
-			gotEvent, err := newCustomEvents(spec.src, myContract)
+			gotEvent, err := newCustomCallablePointEvents(spec.src, myContract, myCallstackBinary)
 			if spec.isError {
 				assert.Error(t, err)
 			} else {
@@ -208,8 +174,11 @@ func TestNewCustomEvents(t *testing.T) {
 	}
 }
 
-func TestNewWasmModuleEvent(t *testing.T) {
+func TestNewCallablePointEvent(t *testing.T) {
 	myContract := RandomAccountAddress(t)
+	myCallstack := []sdk.AccAddress{RandomAccountAddress(t), RandomAccountAddress(t)}
+	myCallstackBinary, err := json.Marshal(myCallstack)
+	require.NoError(t, err)
 	specs := map[string]struct {
 		src     []wasmvmtypes.EventAttribute
 		exp     sdk.Events
@@ -217,23 +186,24 @@ func TestNewWasmModuleEvent(t *testing.T) {
 	}{
 		"all good": {
 			src: []wasmvmtypes.EventAttribute{{Key: "myKey", Value: "myVal"}},
-			exp: sdk.Events{sdk.NewEvent("wasm",
+			exp: sdk.Events{sdk.NewEvent("wasm-callablepoint",
 				sdk.NewAttribute("_contract_address", myContract.String()),
+				sdk.NewAttribute("_callstack", string(myCallstackBinary)),
 				sdk.NewAttribute("myKey", "myVal"))},
 		},
 		"multiple attributes": {
-			src: []wasmvmtypes.EventAttribute{
-				{Key: "myKey", Value: "myVal"},
-				{Key: "myOtherKey", Value: "myOtherVal"},
-			},
-			exp: sdk.Events{sdk.NewEvent("wasm",
+			src: []wasmvmtypes.EventAttribute{{Key: "myKey", Value: "myVal"},
+				{Key: "myOtherKey", Value: "myOtherVal"}},
+			exp: sdk.Events{sdk.NewEvent("wasm-callablepoint",
 				sdk.NewAttribute("_contract_address", myContract.String()),
+				sdk.NewAttribute("_callstack", string(myCallstackBinary)),
 				sdk.NewAttribute("myKey", "myVal"),
 				sdk.NewAttribute("myOtherKey", "myOtherVal"))},
 		},
 		"without attributes": {
-			exp: sdk.Events{sdk.NewEvent("wasm",
-				sdk.NewAttribute("_contract_address", myContract.String()))},
+			exp: sdk.Events{sdk.NewEvent("wasm-callablepoint",
+				sdk.NewAttribute("_contract_address", myContract.String()), sdk.NewAttribute("_callstack", string(myCallstackBinary))),
+			},
 		},
 		"error on _contract_address": {
 			src:     []wasmvmtypes.EventAttribute{{Key: "_contract_address", Value: RandomBech32AccountAddress(t)}},
@@ -249,8 +219,9 @@ func TestNewWasmModuleEvent(t *testing.T) {
 		},
 		"strip whitespace": {
 			src: []wasmvmtypes.EventAttribute{{Key: "   my-real-key    ", Value: "\n\n\nsome-val\t\t\t"}},
-			exp: sdk.Events{sdk.NewEvent("wasm",
+			exp: sdk.Events{sdk.NewEvent("wasm-callablepoint",
 				sdk.NewAttribute("_contract_address", myContract.String()),
+				sdk.NewAttribute("_callstack", string(myCallstackBinary)),
 				sdk.NewAttribute("my-real-key", "some-val"))},
 		},
 		"empty elements": {
@@ -258,14 +229,15 @@ func TestNewWasmModuleEvent(t *testing.T) {
 			isError: true,
 		},
 		"nil": {
-			exp: sdk.Events{sdk.NewEvent("wasm",
+			exp: sdk.Events{sdk.NewEvent("wasm-callablepoint",
 				sdk.NewAttribute("_contract_address", myContract.String()),
+				sdk.NewAttribute("_callstack", string(myCallstackBinary)),
 			)},
 		},
 	}
 	for name, spec := range specs {
 		t.Run(name, func(t *testing.T) {
-			gotEvent, err := newWasmModuleEvent(spec.src, myContract)
+			gotEvent, err := newCallablePointEvent(spec.src, myContract, myCallstackBinary)
 			if spec.isError {
 				assert.Error(t, err)
 			} else {
@@ -274,18 +246,4 @@ func TestNewWasmModuleEvent(t *testing.T) {
 			}
 		})
 	}
-}
-
-// returns true when a wasm module event was emitted for this contract already
-func hasWasmModuleEvent(ctx sdk.Context, contractAddr sdk.AccAddress) bool {
-	for _, e := range ctx.EventManager().Events() {
-		if e.Type == types.WasmModuleEventType {
-			for _, a := range e.Attributes {
-				if string(a.Key) == types.AttributeKeyContractAddr && string(a.Value) == contractAddr.String() {
-					return true
-				}
-			}
-		}
-	}
-	return false
 }

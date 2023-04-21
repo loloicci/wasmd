@@ -6,17 +6,17 @@ import (
 	"testing"
 
 	sdk "github.com/line/lbm-sdk/types"
-	wasmtype "github.com/line/wasmd/x/wasm/types"
 	wasmvm "github.com/line/wasmvm"
 
+	wasmkeeper "github.com/line/wasmd/x/wasm/keeper"
 	wasmvmtypes "github.com/line/wasmvm/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func newAPI(t *testing.T) wasmvm.GoAPI {
-	ctx, keepers := CreateTestInput(t, false, SupportedFeatures, nil, nil)
-	return keepers.WasmKeeper.cosmwasmAPI(ctx)
+	ctx, keepers := CreateTestInput(t, false, AvailableCapabilities)
+	return keepers.WasmKeeper.CosmwasmAPI(ctx)
 }
 
 func TestAPIHumanAddress(t *testing.T) {
@@ -31,13 +31,13 @@ func TestAPIHumanAddress(t *testing.T) {
 		result, gas, err := api.HumanAddress(bz)
 		require.NoError(t, err)
 		assert.Equal(t, addr, result)
-		assert.Equal(t, wasmtype.DefaultGasMultiplier*5, gas)
+		assert.Equal(t, wasmkeeper.CostHumanize, gas)
 	})
 
 	t.Run("invalid address", func(t *testing.T) {
 		_, gas, err := api.HumanAddress([]byte("invalid_address"))
 		require.Error(t, err)
-		assert.Equal(t, wasmtype.DefaultGasMultiplier*5, gas)
+		assert.Equal(t, wasmkeeper.CostHumanize, gas)
 	})
 }
 
@@ -52,27 +52,27 @@ func TestAPICanonicalAddress(t *testing.T) {
 		result, gas, err := api.CanonicalAddress(addr)
 		require.NoError(t, err)
 		assert.Equal(t, expected.Bytes(), result)
-		assert.Equal(t, wasmtype.DefaultGasMultiplier*4, gas)
+		assert.Equal(t, wasmkeeper.CostCanonical, gas)
 	})
 
 	t.Run("invalid address", func(t *testing.T) {
 		_, gas, err := api.CanonicalAddress("invalid_address")
 		assert.Error(t, err)
-		assert.Equal(t, wasmtype.DefaultGasMultiplier*4, gas)
+		assert.Equal(t, wasmkeeper.CostCanonical, gas)
 	})
 }
 
 func TestCallCallablePoint(t *testing.T) {
 	// prepare ctx and keeper
-	ctx, keepers := CreateTestInput(t, false, SupportedFeatures, nil, nil)
+	ctx, keepers := CreateTestInput(t, false, AvailableCapabilities)
 
 	// instantiate an events contract
 	numberWasm, err := ioutil.ReadFile("../testdata/events.wasm")
 	require.NoError(t, err)
 	deposit := sdk.NewCoins(sdk.NewInt64Coin("denom", 100000))
-	creator := keepers.Faucet.NewFundedAccount(ctx, deposit...)
+	creator := keepers.Faucet.NewFundedRandomAccount(ctx, deposit...)
 	em := sdk.NewEventManager()
-	codeID, err := keepers.ContractKeeper.Create(ctx.WithEventManager(em), creator, numberWasm, nil)
+	codeID, _, err := keepers.ContractKeeper.Create(ctx.WithEventManager(em), creator, numberWasm, nil)
 	require.NoError(t, err)
 	initMsg := []byte(`{}`)
 	contractAddr, _, err := keepers.ContractKeeper.Instantiate(ctx.WithEventManager(em), codeID, creator, nil, initMsg, "events", nil)
@@ -80,10 +80,10 @@ func TestCallCallablePoint(t *testing.T) {
 	callstack := []sdk.AccAddress{RandomAccountAddress(t), RandomAccountAddress(t)}
 	callstackBin, err := json.Marshal(callstack)
 	require.NoError(t, err)
-	var gasLimit uint64 = keepers.WasmKeeper.getGasMultiplier(ctx).ToWasmVMGas(400_000)
+	var gasLimit uint64 = keepers.WasmKeeper.GetGasRegister().ToWasmVMGas(400_000)
 
 	// prepare API
-	api := keepers.WasmKeeper.cosmwasmAPI(ctx.WithEventManager(em))
+	api := keepers.WasmKeeper.CosmwasmAPI(ctx.WithEventManager(em))
 
 	// prepare arg for succeed
 	eventsIn := wasmvmtypes.Events{
@@ -229,22 +229,22 @@ func TestCallCallablePoint(t *testing.T) {
 
 func TestValidateDynamicLinkInterface(t *testing.T) {
 	// prepare ctx and keeper
-	ctx, keepers := CreateTestInput(t, false, SupportedFeatures, nil, nil)
+	ctx, keepers := CreateTestInput(t, false, AvailableCapabilities)
 
 	// instantiate an events contract
 	numberWasm, err := ioutil.ReadFile("../testdata/events.wasm")
 	require.NoError(t, err)
 	deposit := sdk.NewCoins(sdk.NewInt64Coin("denom", 100000))
-	creator := keepers.Faucet.NewFundedAccount(ctx, deposit...)
+	creator := keepers.Faucet.NewFundedRandomAccount(ctx, deposit...)
 	em := sdk.NewEventManager()
-	codeID, err := keepers.ContractKeeper.Create(ctx.WithEventManager(em), creator, numberWasm, nil)
+	codeID, _, err := keepers.ContractKeeper.Create(ctx.WithEventManager(em), creator, numberWasm, nil)
 	require.NoError(t, err)
 	initMsg := []byte(`{}`)
 	contractAddr, _, err := keepers.ContractKeeper.Instantiate(ctx.WithEventManager(em), codeID, creator, nil, initMsg, "events", nil)
 	require.NoError(t, err)
 
 	// prepare API
-	api := keepers.WasmKeeper.cosmwasmAPI(ctx.WithEventManager(em))
+	api := keepers.WasmKeeper.CosmwasmAPI(ctx.WithEventManager(em))
 
 	t.Run("succeed valid", func(t *testing.T) {
 		validInterface := []byte(`[{"name":"add_event_dyn","ty":{"params":["I32","I32","I32"],"results":[]}},{"name":"add_events_dyn","ty":{"params":["I32","I32"],"results":[]}},{"name":"add_attribute_dyn","ty":{"params":["I32","I32","I32"],"results":[]}},{"name":"add_attributes_dyn","ty":{"params":["I32","I32"],"results":[]}}]`)

@@ -1,13 +1,14 @@
-package wasm
+package wasmplus
 
 import (
 	"fmt"
 	"testing"
 
-	abci "github.com/line/ostracon/abci/types"
+	"github.com/line/wasmd/x/wasm"
 	"github.com/line/wasmd/x/wasm/keeper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	abci "github.com/tendermint/tendermint/abci/types"
 )
 
 var (
@@ -27,7 +28,7 @@ func TestDynamicPingPongWorks(t *testing.T) {
 	h := data.module.Route().Handler()
 
 	// store dynamic callee code
-	storeCalleeMsg := &MsgStoreCode{
+	storeCalleeMsg := &wasm.MsgStoreCode{
 		Sender:       addr1,
 		WASMByteCode: calleeContract,
 	}
@@ -38,7 +39,7 @@ func TestDynamicPingPongWorks(t *testing.T) {
 	assertStoreCodeResponse(t, res.Data, calleeCodeId)
 
 	// store dynamic caller code
-	storeCallerMsg := &MsgStoreCode{
+	storeCallerMsg := &wasm.MsgStoreCode{
 		Sender:       addr1,
 		WASMByteCode: callerContract,
 	}
@@ -49,7 +50,7 @@ func TestDynamicPingPongWorks(t *testing.T) {
 	assertStoreCodeResponse(t, res.Data, callerCodeId)
 
 	// instantiate callee contract
-	instantiateCalleeMsg := &MsgInstantiateContract{
+	instantiateCalleeMsg := &wasm.MsgInstantiateContract{
 		Sender: addr1,
 		CodeID: calleeCodeId,
 		Label:  "callee",
@@ -63,7 +64,7 @@ func TestDynamicPingPongWorks(t *testing.T) {
 
 	// instantiate caller contract
 	cosmwasmInstantiateCallerMsg := fmt.Sprintf(`{"callee_addr":"%s"}`, calleeContractAddress)
-	instantiateCallerMsg := &MsgInstantiateContract{
+	instantiateCallerMsg := &wasm.MsgInstantiateContract{
 		Sender: addr1,
 		CodeID: callerCodeId,
 		Label:  "caller",
@@ -77,7 +78,7 @@ func TestDynamicPingPongWorks(t *testing.T) {
 
 	// execute ping
 	cosmwasmExecuteMsg := `{"ping":{"ping_num":"100"}}`
-	executeMsg := MsgExecuteContract{
+	executeMsg := wasm.MsgExecuteContract{
 		Sender:   addr1,
 		Contract: callerContractAddress,
 		Msg:      []byte(cosmwasmExecuteMsg),
@@ -104,7 +105,7 @@ func TestDynamicReEntrancyFails(t *testing.T) {
 	h := data.module.Route().Handler()
 
 	// store dynamic callee code
-	storeCalleeMsg := &MsgStoreCode{
+	storeCalleeMsg := &wasm.MsgStoreCode{
 		Sender:       addr1,
 		WASMByteCode: calleeContract,
 	}
@@ -115,7 +116,7 @@ func TestDynamicReEntrancyFails(t *testing.T) {
 	assertStoreCodeResponse(t, res.Data, calleeCodeId)
 
 	// store dynamic caller code
-	storeCallerMsg := &MsgStoreCode{
+	storeCallerMsg := &wasm.MsgStoreCode{
 		Sender:       addr1,
 		WASMByteCode: callerContract,
 	}
@@ -126,7 +127,7 @@ func TestDynamicReEntrancyFails(t *testing.T) {
 	assertStoreCodeResponse(t, res.Data, callerCodeId)
 
 	// instantiate callee contract
-	instantiateCalleeMsg := &MsgInstantiateContract{
+	instantiateCalleeMsg := &wasm.MsgInstantiateContract{
 		Sender: addr1,
 		CodeID: calleeCodeId,
 		Label:  "callee",
@@ -140,7 +141,7 @@ func TestDynamicReEntrancyFails(t *testing.T) {
 
 	// instantiate caller contract
 	cosmwasmInstantiateCallerMsg := fmt.Sprintf(`{"callee_addr":"%s"}`, calleeContractAddress)
-	instantiateCallerMsg := &MsgInstantiateContract{
+	instantiateCallerMsg := &wasm.MsgInstantiateContract{
 		Sender: addr1,
 		CodeID: callerCodeId,
 		Label:  "caller",
@@ -154,7 +155,7 @@ func TestDynamicReEntrancyFails(t *testing.T) {
 
 	// execute ping
 	cosmwasmExecuteMsg := `{"try_re_entrancy":{}}`
-	executeMsg := MsgExecuteContract{
+	executeMsg := wasm.MsgExecuteContract{
 		Sender:   addr1,
 		Contract: callerContractAddress,
 		Msg:      []byte(cosmwasmExecuteMsg),
@@ -171,7 +172,7 @@ func TestDynamicLinkInterfaceValidation(t *testing.T) {
 	h := data.module.Route().Handler()
 
 	// store dynamic callee code
-	storeCalleeMsg := &MsgStoreCode{
+	storeCalleeMsg := &wasm.MsgStoreCode{
 		Sender:       addr1,
 		WASMByteCode: calleeContract,
 	}
@@ -182,7 +183,7 @@ func TestDynamicLinkInterfaceValidation(t *testing.T) {
 	assertStoreCodeResponse(t, res.Data, calleeCodeId)
 
 	// store dynamic caller code
-	storeCallerMsg := &MsgStoreCode{
+	storeCallerMsg := &wasm.MsgStoreCode{
 		Sender:       addr1,
 		WASMByteCode: callerContract,
 	}
@@ -193,7 +194,7 @@ func TestDynamicLinkInterfaceValidation(t *testing.T) {
 	assertStoreCodeResponse(t, res.Data, callerCodeId)
 
 	// instantiate callee contract
-	instantiateCalleeMsg := &MsgInstantiateContract{
+	instantiateCalleeMsg := &wasm.MsgInstantiateContract{
 		Sender: addr1,
 		CodeID: calleeCodeId,
 		Label:  "callee",
@@ -207,7 +208,7 @@ func TestDynamicLinkInterfaceValidation(t *testing.T) {
 
 	// instantiate caller contract
 	cosmwasmInstantiateCallerMsg := fmt.Sprintf(`{"callee_addr":"%s"}`, calleeContractAddress)
-	instantiateCallerMsg := &MsgInstantiateContract{
+	instantiateCallerMsg := &wasm.MsgInstantiateContract{
 		Sender: addr1,
 		CodeID: callerCodeId,
 		Label:  "caller",
@@ -221,7 +222,7 @@ func TestDynamicLinkInterfaceValidation(t *testing.T) {
 
 	// execute validate interface
 	cosmwasmExecuteMsg := `{"validate_interface":{}}`
-	executeMsg := MsgExecuteContract{
+	executeMsg := wasm.MsgExecuteContract{
 		Sender:   addr1,
 		Contract: callerContractAddress,
 		Msg:      []byte(cosmwasmExecuteMsg),
@@ -232,7 +233,7 @@ func TestDynamicLinkInterfaceValidation(t *testing.T) {
 
 	// execute validate interface error
 	cosmwasmExecuteMsgErr := `{"validate_interface_err":{}}`
-	executeMsgErr := MsgExecuteContract{
+	executeMsgErr := wasm.MsgExecuteContract{
 		Sender:   addr1,
 		Contract: callerContractAddress,
 		Msg:      []byte(cosmwasmExecuteMsgErr),
@@ -252,7 +253,7 @@ func TestDynamicCallAndTraditionalQueryWork(t *testing.T) {
 	q := data.module.LegacyQuerierHandler(nil)
 
 	// store callee code (number)
-	storeCalleeMsg := &MsgStoreCode{
+	storeCalleeMsg := &wasm.MsgStoreCode{
 		Sender:       addr1,
 		WASMByteCode: numberContract,
 	}
@@ -263,7 +264,7 @@ func TestDynamicCallAndTraditionalQueryWork(t *testing.T) {
 	assertStoreCodeResponse(t, res.Data, calleeCodeId)
 
 	// store caller code (call-number)
-	storeCallerMsg := &MsgStoreCode{
+	storeCallerMsg := &wasm.MsgStoreCode{
 		Sender:       addr1,
 		WASMByteCode: callNumberContract,
 	}
@@ -274,7 +275,7 @@ func TestDynamicCallAndTraditionalQueryWork(t *testing.T) {
 	assertStoreCodeResponse(t, res.Data, callerCodeId)
 
 	// instantiate callee contract
-	instantiateCalleeMsg := &MsgInstantiateContract{
+	instantiateCalleeMsg := &wasm.MsgInstantiateContract{
 		Sender: addr1,
 		CodeID: calleeCodeId,
 		Label:  "number",
@@ -288,7 +289,7 @@ func TestDynamicCallAndTraditionalQueryWork(t *testing.T) {
 
 	// instantiate caller contract
 	cosmwasmInstantiateCallerMsg := fmt.Sprintf(`{"callee_addr":"%s"}`, calleeContractAddress)
-	instantiateCallerMsg := &MsgInstantiateContract{
+	instantiateCallerMsg := &wasm.MsgInstantiateContract{
 		Sender: addr1,
 		CodeID: callerCodeId,
 		Label:  "call-number",
@@ -302,7 +303,7 @@ func TestDynamicCallAndTraditionalQueryWork(t *testing.T) {
 
 	// traditional queries from caller
 	queryPath := []string{
-		QueryGetContractState,
+		wasm.QueryGetContractState,
 		callerContractAddress,
 		keeper.QueryMethodContractStateSmart,
 	}
@@ -319,7 +320,7 @@ func TestDynamicCallAndTraditionalQueryWork(t *testing.T) {
 
 	// execute mul
 	cosmwasmExecuteMsg := `{"mul":{"value":2}}`
-	executeMsg := MsgExecuteContract{
+	executeMsg := wasm.MsgExecuteContract{
 		Sender:   addr1,
 		Contract: callerContractAddress,
 		Msg:      []byte(cosmwasmExecuteMsg),
@@ -352,7 +353,7 @@ func TestDynamicCallWithWriteFailsByQuery(t *testing.T) {
 	q := data.module.LegacyQuerierHandler(nil)
 
 	// store callee code (number)
-	storeCalleeMsg := &MsgStoreCode{
+	storeCalleeMsg := &wasm.MsgStoreCode{
 		Sender:       addr1,
 		WASMByteCode: numberContract,
 	}
@@ -363,7 +364,7 @@ func TestDynamicCallWithWriteFailsByQuery(t *testing.T) {
 	assertStoreCodeResponse(t, res.Data, calleeCodeId)
 
 	// store caller code (call-number)
-	storeCallerMsg := &MsgStoreCode{
+	storeCallerMsg := &wasm.MsgStoreCode{
 		Sender:       addr1,
 		WASMByteCode: callNumberContract,
 	}
@@ -374,7 +375,7 @@ func TestDynamicCallWithWriteFailsByQuery(t *testing.T) {
 	assertStoreCodeResponse(t, res.Data, callerCodeId)
 
 	// instantiate callee contract
-	instantiateCalleeMsg := &MsgInstantiateContract{
+	instantiateCalleeMsg := &wasm.MsgInstantiateContract{
 		Sender: addr1,
 		CodeID: calleeCodeId,
 		Label:  "number",
@@ -388,7 +389,7 @@ func TestDynamicCallWithWriteFailsByQuery(t *testing.T) {
 
 	// instantiate caller contract
 	cosmwasmInstantiateCallerMsg := fmt.Sprintf(`{"callee_addr":"%s"}`, calleeContractAddress)
-	instantiateCallerMsg := &MsgInstantiateContract{
+	instantiateCallerMsg := &wasm.MsgInstantiateContract{
 		Sender: addr1,
 		CodeID: callerCodeId,
 		Label:  "call-number",
@@ -402,7 +403,7 @@ func TestDynamicCallWithWriteFailsByQuery(t *testing.T) {
 
 	// query which tries to write value to storage
 	queryPath := []string{
-		QueryGetContractState,
+		wasm.QueryGetContractState,
 		callerContractAddress,
 		keeper.QueryMethodContractStateSmart,
 	}
@@ -419,7 +420,7 @@ func TestDynamicCallCalleeFails(t *testing.T) {
 	h := data.module.Route().Handler()
 
 	// store dynamic callee code
-	storeCalleeMsg := &MsgStoreCode{
+	storeCalleeMsg := &wasm.MsgStoreCode{
 		Sender:       addr1,
 		WASMByteCode: calleeContract,
 	}
@@ -430,7 +431,7 @@ func TestDynamicCallCalleeFails(t *testing.T) {
 	assertStoreCodeResponse(t, res.Data, calleeCodeId)
 
 	// store dynamic caller code
-	storeCallerMsg := &MsgStoreCode{
+	storeCallerMsg := &wasm.MsgStoreCode{
 		Sender:       addr1,
 		WASMByteCode: callerContract,
 	}
@@ -441,7 +442,7 @@ func TestDynamicCallCalleeFails(t *testing.T) {
 	assertStoreCodeResponse(t, res.Data, callerCodeId)
 
 	// instantiate callee contract
-	instantiateCalleeMsg := &MsgInstantiateContract{
+	instantiateCalleeMsg := &wasm.MsgInstantiateContract{
 		Sender: addr1,
 		CodeID: calleeCodeId,
 		Label:  "callee",
@@ -455,7 +456,7 @@ func TestDynamicCallCalleeFails(t *testing.T) {
 
 	// instantiate caller contract
 	cosmwasmInstantiateCallerMsg := fmt.Sprintf(`{"callee_addr":"%s"}`, calleeContractAddress)
-	instantiateCallerMsg := &MsgInstantiateContract{
+	instantiateCallerMsg := &wasm.MsgInstantiateContract{
 		Sender: addr1,
 		CodeID: callerCodeId,
 		Label:  "caller",
@@ -469,7 +470,7 @@ func TestDynamicCallCalleeFails(t *testing.T) {
 
 	// execute do_panic
 	cosmwasmExecuteMsg := `{"do_panic":{}}`
-	executeMsg := MsgExecuteContract{
+	executeMsg := wasm.MsgExecuteContract{
 		Sender:   addr1,
 		Contract: callerContractAddress,
 		Msg:      []byte(cosmwasmExecuteMsg),
