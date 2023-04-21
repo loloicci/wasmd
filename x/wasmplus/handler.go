@@ -29,8 +29,6 @@ func NewHandler(k wasmtypes.ContractOpsKeeper) sdk.Handler {
 				)
 				res, err = msgServer.StoreCodeAndInstantiateContract(sdk.WrapSDKContext(ctx), msg2)
 				return sdk.WrapServiceResult(ctx, res, err)
-			} else {
-				return nil, err
 			}
 		}
 		return res, err
