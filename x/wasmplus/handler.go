@@ -18,18 +18,21 @@ func NewHandler(k wasmtypes.ContractOpsKeeper) sdk.Handler {
 	wasmHandler := wasm.NewHandler(k)
 
 	return func(ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error) {
-		var (
-			res proto.Message
-			err error
-		)
-		res, err = wasmHandler(ctx, msg)
+		res, err := wasmHandler(ctx, msg)
 		if err != nil && strings.Contains(err.Error(), "MsgStoreCodeAndInstantiateContract") {
 			// handle wasmplus service
 			msg2, ok := msg.(*types.MsgStoreCodeAndInstantiateContract)
 			if ok {
+				var (
+					res proto.Message
+					err error
+				)
 				res, err = msgServer.StoreCodeAndInstantiateContract(sdk.WrapSDKContext(ctx), msg2)
+				return sdk.WrapServiceResult(ctx, res, err)
+			} else {
+				return nil, err
 			}
 		}
-		return sdk.WrapServiceResult(ctx, res, err)
+		return res, err
 	}
 }
