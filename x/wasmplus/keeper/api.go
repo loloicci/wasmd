@@ -41,7 +41,6 @@ func (a cosmwasmAPIImpl) callCallablePoint(contractAddrStr string, name []byte, 
 
 	result, events, attrs, gas, err := a.keeper.GetWasmVM().CallCallablePoint(name, codeInfo.CodeHash, isReadonly, callstack, env, args, wasmStore, api, querier, gasMeter, wasmGasLimit, wasmkeeper.CostJSONDeserialization)
 	gas += instantiateCost
-
 	if err != nil {
 		return nil, gas, err
 	}
