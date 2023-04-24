@@ -1,8 +1,6 @@
 package wasmplus
 
 import (
-	"strings"
-
 	"github.com/gogo/protobuf/proto"
 
 	sdk "github.com/Finschia/finschia-sdk/types"
@@ -18,19 +16,16 @@ func NewHandler(k wasmtypes.ContractOpsKeeper) sdk.Handler {
 	wasmHandler := wasm.NewHandler(k)
 
 	return func(ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error) {
-		res, err := wasmHandler(ctx, msg)
-		if err != nil && strings.Contains(err.Error(), "MsgStoreCodeAndInstantiateContract") {
-			// handle wasmplus service
-			msg2, ok := msg.(*types.MsgStoreCodeAndInstantiateContract)
-			if ok {
-				var (
-					res proto.Message
-					err error
-				)
-				res, err = msgServer.StoreCodeAndInstantiateContract(sdk.WrapSDKContext(ctx), msg2)
-				return sdk.WrapServiceResult(ctx, res, err)
-			}
+		var (
+			res proto.Message
+			err error
+		)
+		switch msg := msg.(type) {
+		case *types.MsgStoreCodeAndInstantiateContract:
+			res, err = msgServer.StoreCodeAndInstantiateContract(sdk.WrapSDKContext(ctx), msg)
+		default:
+			return wasmHandler(ctx, msg)
 		}
-		return res, err
+		return sdk.WrapServiceResult(ctx, res, err)
 	}
 }
