@@ -99,13 +99,6 @@ func parseStoreAndInitResponse(t *testing.T, data []byte) (uint64, string) {
 	return codeID, addr
 }
 
-// ensure store code returns the expected response
-func assertStoreCodeResponse(t *testing.T, data []byte, expected uint64) {
-	var pStoreResp wasmtypes.MsgStoreCodeResponse
-	require.NoError(t, pStoreResp.Unmarshal(data))
-	require.Equal(t, pStoreResp.CodeID, expected)
-}
-
 type prettyEvent struct {
 	Type string
 	Attr []sdk.Attribute
