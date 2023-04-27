@@ -4,9 +4,10 @@ import (
 	"strconv"
 	"strings"
 
-	clienttypes "github.com/line/lbm-sdk/x/ibc/core/02-client/types"
-	channeltypes "github.com/line/lbm-sdk/x/ibc/core/04-channel/types"
-	abci "github.com/line/ostracon/abci/types"
+	abci "github.com/tendermint/tendermint/abci/types"
+
+	clienttypes "github.com/line/ibc-go/v3/modules/core/02-client/types"
+	channeltypes "github.com/line/ibc-go/v3/modules/core/04-channel/types"
 )
 
 func getSendPackets(evts []abci.Event) []channeltypes.Packet {

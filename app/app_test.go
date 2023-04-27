@@ -7,9 +7,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	abci "github.com/tendermint/tendermint/abci/types"
 	db "github.com/tendermint/tm-db"
 
-	abci "github.com/line/ostracon/abci/types"
 	"github.com/line/ostracon/libs/log"
 
 	"github.com/line/wasmd/x/wasm"
@@ -49,9 +49,9 @@ func TestBlockedAddrs(t *testing.T) {
 	for acc := range maccPerms {
 		//for acc := range gapp.BlockedAddrs() {
 		t.Run(acc, func(t *testing.T) {
-			addr := gapp.accountKeeper.GetModuleAddress(acc)
+			addr := gapp.AccountKeeper.GetModuleAddress(acc)
 			if blockedAddrs[addr.String()] {
-				require.True(t, gapp.bankKeeper.BlockedAddr(addr),
+				require.True(t, gapp.BankKeeper.BlockedAddr(addr),
 					"ensure that blocked addresses are properly set in bank keeper",
 				)
 			}

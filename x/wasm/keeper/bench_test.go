@@ -9,7 +9,6 @@ import (
 	dbm "github.com/tendermint/tm-db"
 
 	"github.com/line/lbm-sdk/crypto/keys/secp256k1"
-	sdk "github.com/line/lbm-sdk/types"
 
 	"github.com/line/wasmd/x/wasm/types"
 )
@@ -69,7 +68,7 @@ func BenchmarkInstantiationOverhead(b *testing.B) {
 	for name, spec := range specs {
 		b.Run(name, func(b *testing.B) {
 			wasmConfig := types.WasmConfig{MemoryCacheSize: 0}
-			ctx, keepers := createTestInput(b, false, SupportedFeatures, nil, nil, wasmConfig, spec.db())
+			ctx, keepers := createTestInput(b, false, AvailableCapabilities, wasmConfig, spec.db())
 			example := InstantiateHackatomExampleContract(b, ctx, keepers)
 			if spec.pinned {
 				require.NoError(b, keepers.ContractKeeper.PinCode(ctx, example.CodeID))
@@ -83,34 +82,6 @@ func BenchmarkInstantiationOverhead(b *testing.B) {
 	}
 }
 
-func BenchmarkAPI(b *testing.B) {
-	wasmConfig := types.WasmConfig{MemoryCacheSize: 0}
-	ctx, keepers := createTestInput(b, false, SupportedFeatures, nil, nil, wasmConfig, dbm.NewMemDB())
-	example := InstantiateHackatomExampleContract(b, ctx, keepers)
-	api := keepers.WasmKeeper.cosmwasmAPI(ctx)
-	addrStr := example.Contract.String()
-	addrBytes, err := sdk.AccAddressFromBech32(example.Contract.String())
-	require.NoError(b, err)
-
-	b.Run("CanonicalAddress", func(b *testing.B) {
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, _, err := api.CanonicalAddress(addrStr)
-			require.NoError(b, err)
-		}
-	})
-
-	b.Run("HumanAddress", func(b *testing.B) {
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, _, err := api.HumanAddress(addrBytes)
-			require.NoError(b, err)
-		}
-	})
-}
-
 // Calculate the time it takes to compile some wasm code the first time.
 // This will help us adjust pricing for UploadCode
 func BenchmarkCompilation(b *testing.B) {
@@ -119,15 +90,12 @@ func BenchmarkCompilation(b *testing.B) {
 		db       func() dbm.DB
 	}{
 		"hackatom": {
-			db:       func() dbm.DB { return dbm.NewMemDB() },
 			wasmFile: "./testdata/hackatom.wasm",
 		},
 		"burner": {
-			db:       func() dbm.DB { return dbm.NewMemDB() },
 			wasmFile: "./testdata/burner.wasm",
 		},
 		"ibc_reflect": {
-			db:       func() dbm.DB { return dbm.NewMemDB() },
 			wasmFile: "./testdata/ibc_reflect.wasm",
 		},
 	}
@@ -135,7 +103,8 @@ func BenchmarkCompilation(b *testing.B) {
 	for name, spec := range specs {
 		b.Run(name, func(b *testing.B) {
 			wasmConfig := types.WasmConfig{MemoryCacheSize: 0}
-			ctx, keepers := createTestInput(b, false, SupportedFeatures, nil, nil, wasmConfig, spec.db())
+			db := dbm.NewMemDB()
+			ctx, keepers := createTestInput(b, false, AvailableCapabilities, wasmConfig, db)
 
 			// print out code size for comparisons
 			code, err := os.ReadFile(spec.wasmFile)

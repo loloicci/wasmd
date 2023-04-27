@@ -1,11 +1,14 @@
 package keeper
 
 import (
+	"bytes"
 	"fmt"
+	"sort"
+
+	abci "github.com/tendermint/tendermint/abci/types"
 
 	sdk "github.com/line/lbm-sdk/types"
 	sdkerrors "github.com/line/lbm-sdk/types/errors"
-	abci "github.com/line/ostracon/abci/types"
 	wasmvmtypes "github.com/line/wasmvm/types"
 
 	"github.com/line/wasmd/x/wasm/types"
@@ -107,6 +110,16 @@ func (d MessageDispatcher) DispatchSubmessages(ctx sdk.Context, contractAddr sdk
 			commit()
 			filteredEvents = filterEvents(append(em.Events(), events...))
 			ctx.EventManager().EmitEvents(filteredEvents)
+			if msg.Msg.Wasm == nil {
+				filteredEvents = []sdk.Event{}
+			} else {
+				for _, e := range filteredEvents {
+					attributes := e.Attributes
+					sort.SliceStable(attributes, func(i, j int) bool {
+						return bytes.Compare(attributes[i].Key, attributes[j].Key) < 0
+					})
+				}
+			}
 		} // on failure, revert state from sandbox, and ignore events (just skip doing the above)
 
 		// we only callback if requested. Short-circuit here the cases we don't want to

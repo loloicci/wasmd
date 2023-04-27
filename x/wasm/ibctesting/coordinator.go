@@ -8,10 +8,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	channeltypes "github.com/line/lbm-sdk/x/ibc/core/04-channel/types"
-	host "github.com/line/lbm-sdk/x/ibc/core/24-host"
-	ibctesting "github.com/line/lbm-sdk/x/ibc/testing"
-	abci "github.com/line/ostracon/abci/types"
+	channeltypes "github.com/line/ibc-go/v3/modules/core/04-channel/types"
+	host "github.com/line/ibc-go/v3/modules/core/24-host"
+	ibctesting "github.com/line/ibc-go/v3/testing"
+	ocabci "github.com/line/ostracon/abci/types"
 
 	wasmkeeper "github.com/line/wasmd/x/wasm/keeper"
 )
@@ -78,7 +78,7 @@ func (coord *Coordinator) UpdateTime() {
 // UpdateTimeForChain updates the clock for a specific chain.
 func (coord *Coordinator) UpdateTimeForChain(chain *TestChain) {
 	chain.CurrentHeader.Time = coord.CurrentTime.UTC()
-	chain.App.BeginBlock(abci.RequestBeginBlock{Header: chain.CurrentHeader})
+	chain.App.BeginBlock(ocabci.RequestBeginBlock{Header: chain.CurrentHeader})
 }
 
 // Setup constructs a OC client, connection, and channel on both chains provided. It will
@@ -201,7 +201,7 @@ func (coord *Coordinator) CommitBlock(chains ...*TestChain) {
 // CommitNBlocks commits n blocks to state and updates the block height by 1 for each commit.
 func (coord *Coordinator) CommitNBlocks(chain *TestChain, n uint64) {
 	for i := uint64(0); i < n; i++ {
-		chain.App.BeginBlock(abci.RequestBeginBlock{Header: chain.CurrentHeader})
+		chain.App.BeginBlock(ocabci.RequestBeginBlock{Header: chain.CurrentHeader})
 		chain.CommitBlock()
 		chain.NextBlock()
 		coord.IncrementTime()
