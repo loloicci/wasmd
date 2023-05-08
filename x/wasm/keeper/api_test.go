@@ -8,8 +8,6 @@ import (
 	sdk "github.com/line/lbm-sdk/types"
 	wasmvm "github.com/line/wasmvm"
 
-	"github.com/line/wasmd/x/wasm/keeper"
-	wasmkeeper "github.com/line/wasmd/x/wasm/keeper"
 	wasmvmtypes "github.com/line/wasmvm/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,7 +15,7 @@ import (
 
 func newAPI(t *testing.T) wasmvm.GoAPI {
 	ctx, keepers := CreateTestInput(t, false, AvailableCapabilities)
-	return keepers.WasmKeeper.GetCosmwasmAPIGenerator().Generate(&ctx)
+	return keepers.WasmKeeper.cosmwasmAPIGenerator.Generate(&ctx)
 }
 
 func TestAPIHumanAddress(t *testing.T) {
@@ -32,13 +30,13 @@ func TestAPIHumanAddress(t *testing.T) {
 		result, gas, err := api.HumanAddress(bz)
 		require.NoError(t, err)
 		assert.Equal(t, addr, result)
-		assert.Equal(t, wasmkeeper.CostHumanize, gas)
+		assert.Equal(t, costHumanize, gas)
 	})
 
 	t.Run("invalid address", func(t *testing.T) {
 		_, gas, err := api.HumanAddress([]byte("invalid_address"))
 		require.Error(t, err)
-		assert.Equal(t, wasmkeeper.CostHumanize, gas)
+		assert.Equal(t, costHumanize, gas)
 	})
 }
 
@@ -53,13 +51,13 @@ func TestAPICanonicalAddress(t *testing.T) {
 		result, gas, err := api.CanonicalAddress(addr)
 		require.NoError(t, err)
 		assert.Equal(t, expected.Bytes(), result)
-		assert.Equal(t, wasmkeeper.CostCanonical, gas)
+		assert.Equal(t, costCanonical, gas)
 	})
 
 	t.Run("invalid address", func(t *testing.T) {
 		_, gas, err := api.CanonicalAddress("invalid_address")
 		assert.Error(t, err)
-		assert.Equal(t, wasmkeeper.CostCanonical, gas)
+		assert.Equal(t, costCanonical, gas)
 	})
 }
 
@@ -85,7 +83,7 @@ func TestCallCallablePoint(t *testing.T) {
 	var gasLimit uint64 = keepers.WasmKeeper.GetGasRegister().ToWasmVMGas(400_000)
 
 	// prepare API
-	api := keepers.WasmKeeper.GetCosmwasmAPIGenerator().Generate(&ctx)
+	api := keepers.WasmKeeper.cosmwasmAPIGenerator.Generate(&ctx)
 
 	// prepare arg for succeed
 	eventsIn := wasmvmtypes.Events{
@@ -130,7 +128,7 @@ func TestCallCallablePoint(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, []byte(`null`), res)
 
-		eventsExpected, err := keeper.NewCustomCallablePointEvents(eventsIn, contractAddr, callstackBin)
+		eventsExpected, err := newCustomCallablePointEvents(eventsIn, contractAddr, callstackBin)
 		require.NoError(t, err)
 		for _, e := range eventsExpected {
 			assert.Contains(t, em.Events(), e)
@@ -210,23 +208,6 @@ func TestCallCallablePoint(t *testing.T) {
 		assert.ErrorContains(t, err, "Error calling the VM")
 		assert.ErrorContains(t, err, "A contract can only be called once per one call stack.")
 	})
-
-	t.Run("fail with inactive contract", func(t *testing.T) {
-		// add contract to inactive
-		keepers.WasmKeeper.addInactiveContract(ctx, contractAddr)
-
-		argsEv := [][]byte{eventsInBin}
-		argsEvBin, err := json.Marshal(argsEv)
-		require.NoError(t, err)
-		name := "add_events_dyn"
-		nameBin, err := json.Marshal(name)
-		require.NoError(t, err)
-		_, _, err = api.CallCallablePoint(contractAddr.String(), nameBin, argsEvBin, false, callstackBin, gasLimit)
-		assert.ErrorContains(t, err, "called contract cannot be executed")
-
-		// reset inactive contracts
-		keepers.WasmKeeper.deleteInactiveContract(ctx, contractAddr)
-	})
 }
 
 func TestValidateDynamicLinkInterface(t *testing.T) {
@@ -247,7 +228,7 @@ func TestValidateDynamicLinkInterface(t *testing.T) {
 	require.NoError(t, err)
 
 	// prepare API
-	api := keepers.WasmKeeper.GetCosmwasmAPIGenerator().Generate(&ctx)
+	api := keepers.WasmKeeper.cosmwasmAPIGenerator.Generate(&ctx)
 
 	t.Run("succeed valid", func(t *testing.T) {
 		validInterface := []byte(`[{"name":"add_event_dyn","ty":{"params":["I32","I32","I32"],"results":[]}},{"name":"add_events_dyn","ty":{"params":["I32","I32"],"results":[]}},{"name":"add_attribute_dyn","ty":{"params":["I32","I32","I32"],"results":[]}},{"name":"add_attributes_dyn","ty":{"params":["I32","I32"],"results":[]}}]`)
@@ -274,18 +255,5 @@ func TestValidateDynamicLinkInterface(t *testing.T) {
 		_, _, err := api.ValidateInterface(RandomAccountAddress(t).String(), validInterface)
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "contract: not found")
-	})
-
-	t.Run("fail with inactive contract", func(t *testing.T) {
-		// add contract to inactive
-		keepers.WasmKeeper.addInactiveContract(ctx, contractAddr)
-
-		validInterface := []byte(`[{"name":"add_event_dyn","ty":{"params":["I32","I32","I32"],"results":[]}},{"name":"add_events_dyn","ty":{"params":["I32","I32"],"results":[]}},{"name":"add_attribute_dyn","ty":{"params":["I32","I32","I32"],"results":[]}},{"name":"add_attributes_dyn","ty":{"params":["I32","I32"],"results":[]}}]`)
-		_, _, err = api.ValidateInterface(contractAddr.String(), validInterface)
-
-		assert.ErrorContains(t, err, "try to validate a contract cannot be executed")
-
-		// reset inactive contracts
-		keepers.WasmKeeper.deleteInactiveContract(ctx, contractAddr)
 	})
 }
