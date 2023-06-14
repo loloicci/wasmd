@@ -13,25 +13,26 @@ import (
 	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	abci "github.com/tendermint/tendermint/abci/types"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 
-	"github.com/line/lbm-sdk/baseapp"
-	"github.com/line/lbm-sdk/crypto/keys/ed25519"
-	stypes "github.com/line/lbm-sdk/store/types"
-	sdk "github.com/line/lbm-sdk/types"
-	"github.com/line/lbm-sdk/types/address"
-	sdkerrors "github.com/line/lbm-sdk/types/errors"
-	authtypes "github.com/line/lbm-sdk/x/auth/types"
-	"github.com/line/lbm-sdk/x/auth/vesting"
-	vestingtypes "github.com/line/lbm-sdk/x/auth/vesting/types"
-	banktypes "github.com/line/lbm-sdk/x/bank/types"
-	distributiontypes "github.com/line/lbm-sdk/x/distribution/types"
-	"github.com/line/ostracon/libs/rand"
-	wasmvm "github.com/line/wasmvm"
-	wasmvmtypes "github.com/line/wasmvm/types"
+	"github.com/Finschia/finschia-sdk/baseapp"
+	"github.com/Finschia/finschia-sdk/crypto/keys/ed25519"
+	stypes "github.com/Finschia/finschia-sdk/store/types"
+	sdk "github.com/Finschia/finschia-sdk/types"
+	"github.com/Finschia/finschia-sdk/types/address"
+	sdkerrors "github.com/Finschia/finschia-sdk/types/errors"
+	authtypes "github.com/Finschia/finschia-sdk/x/auth/types"
+	"github.com/Finschia/finschia-sdk/x/auth/vesting"
+	vestingtypes "github.com/Finschia/finschia-sdk/x/auth/vesting/types"
+	banktypes "github.com/Finschia/finschia-sdk/x/bank/types"
+	distributiontypes "github.com/Finschia/finschia-sdk/x/distribution/types"
+	"github.com/Finschia/ostracon/libs/rand"
+	wasmvm "github.com/Finschia/wasmvm"
+	wasmvmtypes "github.com/Finschia/wasmvm/types"
 
-	"github.com/line/wasmd/x/wasm/keeper/wasmtesting"
-	"github.com/line/wasmd/x/wasm/types"
+	"github.com/Finschia/wasmd/x/wasm/keeper/wasmtesting"
+	"github.com/Finschia/wasmd/x/wasm/types"
 )
 
 // When migrated to go 1.16, embed package should be used instead.
@@ -1719,34 +1720,6 @@ func TestClearContractAdmin(t *testing.T) {
 	}
 }
 
-func TestExecuteManualInactiveContractFailure(t *testing.T) {
-	ctx, keepers := CreateTestInput(t, false, AvailableCapabilities)
-	keeper := keepers.ContractKeeper
-
-	deposit := sdk.NewCoins(sdk.NewInt64Coin("denom", 100000))
-	topUp := sdk.NewCoins(sdk.NewInt64Coin("denom", 5000))
-	creator := keepers.Faucet.NewFundedRandomAccount(ctx, deposit...)
-	fred := keepers.Faucet.NewFundedRandomAccount(ctx, topUp...)
-
-	wasmCode, err := os.ReadFile("./testdata/hackatom.wasm")
-	require.NoError(t, err)
-
-	contractID, _, err := keeper.Create(ctx, creator, wasmCode, nil)
-	require.NoError(t, err)
-
-	_, _, bob := keyPubAddr()
-	initMsg := HackatomExampleInitMsg{
-		Verifier:    fred,
-		Beneficiary: bob,
-	}
-	initMsgBz, err := json.Marshal(initMsg)
-	require.NoError(t, err)
-
-	addr, _, err := keeper.Instantiate(ctx, contractID, creator, nil, initMsgBz, "demo contract 3", deposit)
-	require.NoError(t, err)
-	require.Equal(t, "link14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sgf2vn8", addr.String())
-}
-
 func TestPinCode(t *testing.T) {
 	ctx, keepers := CreateTestInput(t, false, AvailableCapabilities)
 	k := keepers.WasmKeeper
@@ -2069,6 +2042,7 @@ func TestSetAccessConfig(t *testing.T) {
 	k := keepers.WasmKeeper
 	creatorAddr := RandomAccountAddress(t)
 	nonCreatorAddr := RandomAccountAddress(t)
+	const codeID = 1
 
 	specs := map[string]struct {
 		authz           AuthorizationPolicy
@@ -2076,18 +2050,27 @@ func TestSetAccessConfig(t *testing.T) {
 		newConfig       types.AccessConfig
 		caller          sdk.AccAddress
 		expErr          bool
+		expEvts         map[string]string
 	}{
 		"user with new permissions == chain permissions": {
 			authz:           DefaultAuthorizationPolicy{},
 			chainPermission: types.AccessTypeEverybody,
 			newConfig:       types.AllowEverybody,
 			caller:          creatorAddr,
+			expEvts: map[string]string{
+				"code_id":         "1",
+				"code_permission": "Everybody",
+			},
 		},
 		"user with new permissions < chain permissions": {
 			authz:           DefaultAuthorizationPolicy{},
 			chainPermission: types.AccessTypeEverybody,
 			newConfig:       types.AllowNobody,
 			caller:          creatorAddr,
+			expEvts: map[string]string{
+				"code_id":         "1",
+				"code_permission": "Nobody",
+			},
 		},
 		"user with new permissions > chain permissions": {
 			authz:           DefaultAuthorizationPolicy{},
@@ -2108,29 +2091,59 @@ func TestSetAccessConfig(t *testing.T) {
 			chainPermission: types.AccessTypeEverybody,
 			newConfig:       types.AllowEverybody,
 			caller:          creatorAddr,
+			expEvts: map[string]string{
+				"code_id":         "1",
+				"code_permission": "Everybody",
+			},
 		},
 		"gov with new permissions < chain permissions": {
 			authz:           GovAuthorizationPolicy{},
 			chainPermission: types.AccessTypeEverybody,
 			newConfig:       types.AllowNobody,
 			caller:          creatorAddr,
+			expEvts: map[string]string{
+				"code_id":         "1",
+				"code_permission": "Nobody",
+			},
 		},
 		"gov with new permissions > chain permissions": {
 			authz:           GovAuthorizationPolicy{},
 			chainPermission: types.AccessTypeNobody,
 			newConfig:       types.AccessTypeOnlyAddress.With(creatorAddr),
 			caller:          creatorAddr,
+			expEvts: map[string]string{
+				"code_id":              "1",
+				"code_permission":      "OnlyAddress",
+				"authorized_addresses": creatorAddr.String(),
+			},
+		},
+		"gov with new permissions > chain permissions - multiple addresses": {
+			authz:           GovAuthorizationPolicy{},
+			chainPermission: types.AccessTypeNobody,
+			newConfig:       types.AccessTypeAnyOfAddresses.With(creatorAddr, nonCreatorAddr),
+			caller:          creatorAddr,
+			expEvts: map[string]string{
+				"code_id":              "1",
+				"code_permission":      "AnyOfAddresses",
+				"authorized_addresses": creatorAddr.String() + "," + nonCreatorAddr.String(),
+			},
 		},
 		"gov without actor": {
 			authz:           GovAuthorizationPolicy{},
 			chainPermission: types.AccessTypeEverybody,
 			newConfig:       types.AllowEverybody,
+			expEvts: map[string]string{
+				"code_id":         "1",
+				"code_permission": "Everybody",
+			},
 		},
 	}
-	const codeID = 1
 	for name, spec := range specs {
 		t.Run(name, func(t *testing.T) {
 			ctx, _ := parentCtx.CacheContext()
+			em := sdk.NewEventManager()
+			ctx = ctx.WithEventManager(em)
+
 			newParams := types.DefaultParams()
 			newParams.InstantiateDefaultPermission = spec.chainPermission
 			k.SetParams(ctx, newParams)
@@ -2143,6 +2156,10 @@ func TestSetAccessConfig(t *testing.T) {
 				return
 			}
 			require.NoError(t, gotErr)
+			// and event emitted
+			require.Len(t, em.Events(), 1)
+			assert.Equal(t, "update_code_access_config", em.Events()[0].Type)
+			assert.Equal(t, spec.expEvts, attrsToStringMap(em.Events()[0].Attributes))
 		})
 	}
 }
@@ -2228,7 +2245,6 @@ func TestCoinBurnerPruneBalances(t *testing.T) {
 }
 
 func TestKeeper_GetByteCode(t *testing.T) {
-
 	ctx, keepers := CreateTestInput(t, false, AvailableCapabilities)
 	keeper := keepers.ContractKeeper
 
@@ -2259,7 +2275,80 @@ func TestKeeper_GetByteCode(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.Equal(t, tt.want, got)
-
 		})
 	}
+}
+
+func TestSetContractAdmin(t *testing.T) {
+	parentCtx, keepers := CreateTestInput(t, false, AvailableCapabilities)
+	k := keepers.WasmKeeper
+	myAddr := RandomAccountAddress(t)
+	example := InstantiateReflectExampleContract(t, parentCtx, keepers)
+	specs := map[string]struct {
+		newAdmin sdk.AccAddress
+		caller   sdk.AccAddress
+		policy   AuthorizationPolicy
+		expAdmin string
+		expErr   bool
+	}{
+		"update admin": {
+			newAdmin: myAddr,
+			caller:   example.CreatorAddr,
+			policy:   DefaultAuthorizationPolicy{},
+			expAdmin: myAddr.String(),
+		},
+		"update admin - unauthorized": {
+			newAdmin: myAddr,
+			caller:   RandomAccountAddress(t),
+			policy:   DefaultAuthorizationPolicy{},
+			expErr:   true,
+		},
+		"clear admin - default policy": {
+			caller:   example.CreatorAddr,
+			policy:   DefaultAuthorizationPolicy{},
+			expAdmin: "",
+		},
+		"clear admin - unauthorized": {
+			expAdmin: "",
+			policy:   DefaultAuthorizationPolicy{},
+			caller:   RandomAccountAddress(t),
+			expErr:   true,
+		},
+		"clear admin - gov policy": {
+			newAdmin: nil,
+			policy:   GovAuthorizationPolicy{},
+			caller:   example.CreatorAddr,
+			expAdmin: "",
+		},
+	}
+	for name, spec := range specs {
+		t.Run(name, func(t *testing.T) {
+			ctx, _ := parentCtx.CacheContext()
+			em := sdk.NewEventManager()
+			ctx = ctx.WithEventManager(em)
+			gotErr := k.setContractAdmin(ctx, example.Contract, spec.caller, spec.newAdmin, spec.policy)
+			if spec.expErr {
+				require.Error(t, gotErr)
+				return
+			}
+			require.NoError(t, gotErr)
+			assert.Equal(t, spec.expAdmin, k.GetContractInfo(ctx, example.Contract).Admin)
+			// and event emitted
+			require.Len(t, em.Events(), 1)
+			assert.Equal(t, "update_contract_admin", em.Events()[0].Type)
+			exp := map[string]string{
+				"_contract_address": example.Contract.String(),
+				"new_admin_address": spec.expAdmin,
+			}
+			assert.Equal(t, exp, attrsToStringMap(em.Events()[0].Attributes))
+		})
+	}
+}
+
+func attrsToStringMap(attrs []abci.EventAttribute) map[string]string {
+	r := make(map[string]string, len(attrs))
+	for _, v := range attrs {
+		r[string(v.Key)] = string(v.Value)
+	}
+	return r
 }
